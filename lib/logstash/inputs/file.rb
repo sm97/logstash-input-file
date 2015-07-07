@@ -134,9 +134,14 @@ class LogStash::Inputs::File < LogStash::Inputs::Base
     @path.each { |path| @tail.tail(path) }
 
     @tail.subscribe do |path, line|
+      # dirty hack to get read line position and put it into event
+      @sincedb = @tail.instance_variable_get("@sincedb")
+      @statcache = @tail.instance_variable_get("@statcache")
+      @position = @sincedb[@statcache[path]]
       @logger.debug? && @logger.debug("Received line", :path => path, :text => line)
       @codec.decode(line) do |event|
         event["[@metadata][path]"] = path
+        event["position"] = @position if !event.include?("position")
         event["host"] = @host if !event.include?("host")
         event["path"] = path if !event.include?("path")
         decorate(event)
